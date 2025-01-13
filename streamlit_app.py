@@ -1,38 +1,18 @@
 import streamlit as st
 import uuid
 
-# App title and configuration
-st.set_page_config(page_title="", layout="wide")
+# -----------------------------
+# App Configuration
+# -----------------------------
+st.set_page_config(page_title="📄🔍 RAG System Prototype", layout="wide")
 st.title("📄🔍 RAG System Prototype")
 
 # -----------------------------
-# Sidebar for embedding selection and parameters
-# -----------------------------
-with st.sidebar:
-    st.header("Settings")
-    
-    # Embedding method selection
-    translate_methods = ["Easy","Mbart50","MarianMT","T5","Pegasus","Pegasus","google"]
-    embedding_methods = ["SBERT", "BERT", "FastText", "GPT-3", "Word2Vec"]
-    selected_translate = st.selectbox("Select Translate Method", translate_methods, index=0)
-    selected_embedding = st.selectbox("Select Embedding Method", embedding_methods, index=0)
-    
-    # Number of results to display
-    top_k = st.slider("Number of Results (Top K)", min_value=1, max_value=10, value=5)
-
-    # Button to clear session state
-    if st.button("Clear All Data"):
-        st.session_state.clear()
-        st.success("Session state cleared!")
-        st.rerun()
-
-# -----------------------------
-# Initialize session state
+# Initialize Session State
 # -----------------------------
 if "uploaded_documents" not in st.session_state:
     st.session_state["uploaded_documents"] = []
 
-# Use a dynamic key for resetting the uploader
 if "uploader_key" not in st.session_state:
     st.session_state["uploader_key"] = str(uuid.uuid4())
 
@@ -40,78 +20,141 @@ if "query_results" not in st.session_state:
     st.session_state["query_results"] = []
 
 # -----------------------------
+# Sidebar: Settings
+# -----------------------------
+with st.sidebar:
+    st.header("⚙️ Settings")
+    
+    with st.expander("🔤 Translation & Embedding Methods", expanded=True):
+        # Embedding method selection
+        translate_methods = ["Easy", "Mbart50", "MarianMT", "T5", "Pegasus", "Google Translate"]
+        embedding_methods = ["SBERT", "BERT", "FastText", "GPT-3", "Word2Vec"]
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            selected_translate = st.selectbox("Select Translation Method", translate_methods, index=0)
+        with col2:
+            selected_embedding = st.selectbox("Select Embedding Method", embedding_methods, index=0)
+    
+    with st.expander("📈 Query Parameters", expanded=True):
+        # Number of results to display
+        top_k = st.slider("Number of Results (Top K)", min_value=1, max_value=10, value=5)
+    
+    # Button to clear session state
+    if st.button("🧹 Clear All Data"):
+        st.session_state.clear()
+        st.success("Session state cleared!")
+        st.rerun()
+
+# -----------------------------
 # Document Upload Section
 # -----------------------------
 st.header("📄 Document Upload")
 
-# 1) The file uploader has a dynamic key
-uploaded_files = st.file_uploader(
-    "Upload your documents (PDF/TXT)",
-    accept_multiple_files=True,
-    key=st.session_state["uploader_key"]
-)
+upload_col1, upload_col2 = st.columns([3, 1])
 
-# 2) An "Upload" button that moves the files into session_state
-if st.button("Upload"):
-    if uploaded_files:
-        for uploaded_file in uploaded_files:
-            file_info = {
-                "name": uploaded_file.name,
-                "size": len(uploaded_file.getvalue())
-            }
-            # Prevent duplicates
-            if file_info not in st.session_state["uploaded_documents"]:
-                st.session_state["uploaded_documents"].append(file_info)
-        st.success("Documents uploaded successfully!")
-    else:
-        st.warning("No files selected.")
+with upload_col1:
+    uploaded_files = st.file_uploader(
+        "Upload your documents (PDF/TXT)",
+        accept_multiple_files=True,
+        key=st.session_state["uploader_key"]
+    )
 
-    # 3) Generate a new key to reset/clear the file uploader
-    st.session_state["uploader_key"] = str(uuid.uuid4())
-    st.rerun()
+with upload_col2:
+    if st.button("📥 Upload"):
+        if uploaded_files:
+            new_files = False
+            for uploaded_file in uploaded_files:
+                file_info = {
+                    "id": str(uuid.uuid4()),
+                    "name": uploaded_file.name,
+                    "size": len(uploaded_file.getvalue()),
+                    "type": uploaded_file.type,
+                    "data": uploaded_file.getvalue()
+                }
+                # Prevent duplicates based on file name
+                if not any(doc["name"] == uploaded_file.name for doc in st.session_state["uploaded_documents"]):
+                    st.session_state["uploaded_documents"].append(file_info)
+                    new_files = True
+            if new_files:
+                st.success("Documents uploaded successfully!")
+            else:
+                st.info("No new documents to upload.")
+        else:
+            st.warning("No files selected.")
+        
+        # Reset the uploader
+        st.session_state["uploader_key"] = str(uuid.uuid4())
+        st.rerun()
 
 # -----------------------------
-# Display & delete uploaded documents
+# Display Uploaded Documents
 # -----------------------------
 if st.session_state["uploaded_documents"]:
-    st.subheader("Uploaded Documents")
+    st.subheader("🗂️ Uploaded Documents")
     
-    doc_names = [doc["name"] for doc in st.session_state["uploaded_documents"]]
+    # Search functionality
+    search_query = st.text_input("🔍 Search Documents:")
+    if search_query:
+        filtered_docs = [doc for doc in st.session_state["uploaded_documents"] if search_query.lower() in doc["name"].lower()]
+    else:
+        filtered_docs = st.session_state["uploaded_documents"]
     
-    # Multi-select for deletion
-    selected_docs_to_delete = st.multiselect("Select documents to delete:", doc_names)
-    
-    # Delete button
-    if st.button("Delete Selected Documents"):
-        st.session_state["uploaded_documents"] = [
-            doc for doc in st.session_state["uploaded_documents"]
-            if doc["name"] not in selected_docs_to_delete
-        ]
-        st.success("Selected documents deleted!")
-        st.rerun()
-    
-    # Show remaining docs
-    for doc in st.session_state["uploaded_documents"]:
-        st.write(f"- **{doc['name']}** ({doc['size']} bytes)")
+    if filtered_docs:
+        # Display documents in a table
+        import pandas as pd
+        doc_df = pd.DataFrame([{
+            "Name": doc["name"],
+            "Size (KB)": f"{doc['size'] / 1024:.2f}",
+            "Type": doc["type"]
+        } for doc in filtered_docs])
+        st.table(doc_df)
+        
+        # Selection for deletion
+        selected_docs_to_delete = st.multiselect("Select documents to delete:", [doc["name"] for doc in filtered_docs])
+        
+        if st.button("🗑️ Delete Selected Documents"):
+            st.session_state["uploaded_documents"] = [
+                doc for doc in st.session_state["uploaded_documents"]
+                if doc["name"] not in selected_docs_to_delete
+            ]
+            st.success("Selected documents deleted!")
+            st.rerun()
+    else:
+        st.info("No documents match your search.")
 
 # -----------------------------
 # Query Input Section
 # -----------------------------
 st.header("🔍 Query Input")
-query = st.text_input("Enter your query:")
 
-if query:
-    st.write(f"**Selected Embedding**: {selected_embedding}")
-    st.write(f"**Query**: {query}")
-    st.write(f"**Top K Results**: {top_k}")
+query_col1, query_col2 = st.columns([4, 1])
+
+with query_col1:
+    query = st.text_input("Enter your query:")
+
+with query_col2:
+    submit_query = st.button("🔍 Submit Query")
+
+if submit_query and query:
+    with st.spinner("Processing your query..."):
+        # Simulate processing delay
+        import time
+        time.sleep(2)
+        
+        # Simulate query results
+        st.session_state["query_results"] = [f"**Result {i+1}:** Placeholder text for result {i+1}." for i in range(top_k)]
     
-    # Simulate query results
-    st.subheader("Query Results")
-    for i in range(top_k):
-        st.markdown(f"**Result {i+1}:** Placeholder text for result {i+1}.")
+    st.success("Query processed!")
+    
+if st.session_state["query_results"]:
+    st.subheader("📄 Query Results")
+    for result in st.session_state["query_results"]:
+        with st.expander(result.split(":")[0]):
+            st.write(result.split(":")[1].strip())
 
 # -----------------------------
 # Footer
 # -----------------------------
 st.markdown("---")
-st.markdown("👨‍💻 Built with Streamlit for RAG System Prototyping.")
+st.markdown("👨‍💻 Built with [Streamlit](https://streamlit.io/) for RAG System Prototyping.")
