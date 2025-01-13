@@ -59,6 +59,9 @@ with upload_col1:
         accept_multiple_files=True,
         key=st.session_state["uploader_key"]
     )
+
+with upload_col2:
+    st.markdown("\n", unsafe_allow_html=True)
     if st.button("📥 Upload"):
         if uploaded_files:
             new_files = False
@@ -130,24 +133,27 @@ query_col1, query_col2 = st.columns([3, 1])
 
 with query_col1:
     query = st.text_input("Enter your query:")
+
+with query_col2:
+    st.markdown("\n", unsafe_allow_html=True)
     submit_query = st.button("🔍 Submit Query")
 
-    if submit_query and query:
-        with st.spinner("Processing your query..."):
-            # Simulate processing delay
-            import time
-            time.sleep(2)
-            
-            # Simulate query results
-            st.session_state["query_results"] = [f"**Result {i+1}:** Placeholder text for result {i+1}." for i in range(top_k)]
-
-        st.success("Query processed!")
+if submit_query and query:
+    with st.spinner("Processing your query..."):
+        # Simulate processing delay
+        import time
+        time.sleep(2)
+        
+        # Simulate query results
+        st.session_state["query_results"] = [f"**Result {i+1}:** Placeholder text for result {i+1}." for i in range(top_k)]
     
-    if st.session_state["query_results"]:
-        st.subheader("📄 Query Results")
-        for result in st.session_state["query_results"]:
-            with st.expander(result.split(":")[0]):
-                st.write(result.split(":")[1].strip())
+    st.success("Query processed!")
+    
+if st.session_state["query_results"]:
+    st.subheader("📄 Query Results")
+    for result in st.session_state["query_results"]:
+        with st.expander(result.split(":")[0]):
+            st.write(result.split(":")[1].strip())
 
 # -----------------------------
 # Footer
