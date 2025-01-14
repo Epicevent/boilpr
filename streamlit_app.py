@@ -61,7 +61,10 @@ with upload_col1:
     )
 
 with upload_col2:
-    st.markdown("\n", unsafe_allow_html=True)
+    st.write("")
+    st.write("")
+    st.markdown(" ", unsafe_allow_html=True)
+    st.markdown(" ", unsafe_allow_html=True)
     if st.button("📥 Upload"):
         if uploaded_files:
             new_files = False
@@ -135,7 +138,8 @@ with query_col1:
     query = st.text_input("Enter your query:")
 
 with query_col2:
-    st.markdown("\n", unsafe_allow_html=True)
+    st.write("")
+    st.markdown(" ", unsafe_allow_html=True)
     submit_query = st.button("🔍 Submit Query")
 
 if submit_query and query:
