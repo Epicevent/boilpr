@@ -2,6 +2,8 @@ import streamlit as st
 import time
 import app.utils.query_utils as query_utils
 
+
+
 def render_llm_query_page():
     st.header("LLM 질의응답 데모")
 
@@ -11,13 +13,16 @@ def render_llm_query_page():
     if "chat_history" not in st.session_state:
         st.session_state["chat_history"] = []
     if "search_active" not in st.session_state:
-        st.session_state["search_active"] = False
+        st.session_state["search_active"] = True
     if "latest_answer" not in st.session_state:
         st.session_state["latest_answer"] = ""
     if "embedding_model" not in st.session_state:
         st.session_state["embedding_model"] = "snowflake-arctic-embed2"
     if "clear_pending" not in st.session_state:
         st.session_state["clear_pending"] = False
+
+    if "Language_model" not in st.session_state:
+        st.session_state["Language_model"] = "exaone3.5:2.4b"
 
     # 임베딩 모델 선택 UI
     embedding_model = st.selectbox(
@@ -26,6 +31,14 @@ def render_llm_query_page():
         index=0
     )
     st.session_state["embedding_model"] = embedding_model
+
+    # 언어 모델 선택 UI
+    language_model = st.selectbox(
+        "언어 모델을 선택하세요:",
+        options=["exaone3.5:32b", "exaone3.5:7.8b", "exaone3.5:2.4b"],
+        index=2
+    )
+    st.session_state["Language_model"] = language_model
 
     # -----------------------------
     # (2) 대화 내역 표시 영역 (History Box)
@@ -58,7 +71,7 @@ def render_llm_query_page():
     with col1:
         search_active = st.checkbox(
             "Semantic Search 활성화", 
-            value=st.session_state["search_active"],
+            value=True,
             key="semantic_search_checkbox"
         )
         st.session_state["search_active"] = search_active
@@ -83,10 +96,11 @@ def render_llm_query_page():
                 with st.spinner("RAG 처리 중..."):
                     result = query_utils.query_document(
                         user_input,
-                        n_results=10,
+                        n_results=15,
                         response=True,
                         rerank=True,
-                        embedding_model=st.session_state["embedding_model"]
+                        embedding_model=st.session_state["embedding_model"],
+                        generation_model= st.session_state["Language_model"]
                     )
                     response_text = result.get("generated_response", "")
                     time.sleep(1)
@@ -95,7 +109,8 @@ def render_llm_query_page():
                     time.sleep(1)
                     response_text = query_utils.llm_response(
                         user_input,
-                        st.session_state["chat_history"]
+                        st.session_state["chat_history"],
+                        model=st.session_state["Language_model"]
                     )
             st.session_state["chat_history"].append(
                 {"role": "assistant", "content": response_text}
